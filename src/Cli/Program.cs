@@ -8,4 +8,5 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
  Console.WriteLine($"Архітектура : {report.ProcessArchitecture}");
  Console.WriteLine($"RID (визначено): {report.DetectedRid}");
  Console.WriteLine($"RID (від .NET) : {report.ReportedRid}");
+ Console.WriteLine($"Примітка    : {report.BuildNote}");
  Console.WriteLine($"Каталог : {report.BaseDirectory}");
