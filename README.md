@@ -27,10 +27,10 @@ CrossApp/
 * dotnet publish src/Cli -c Release -r win-x64 --self-contained false
 
 ## Таблиця
-|RID      | Режим               | Розмір publish  |runtime  |  
-|win-x64  |self-contained       |76,7 MB          | ні |
-|win-x64  | framework-dependent |0,2              |так (.NET 10) |
-
+| RID | Режим | Розмір publish | runtime |
+| --- | --- | --- | --- |
+| win-x64 | self-contained | 76,7 MB | ні |
+| win-x64 | framework-dependent | 0,2 MB | так (.NET 10) |
 
 ## Середовище
 .NET SDK 10.0, Windows 11 x64
