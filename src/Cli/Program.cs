@@ -4,80 +4,65 @@ using System.Linq;
 using System.Text;
 using Core.Dto;
 using Core.Import;
+using Core.Domain;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-string path = args.Length > 0 ? args[0] : Path.Combine("data", "sample.csv");
 
-if (!File.Exists(path))
+Console.WriteLine("=== Сценарій 1: успіх ===");
+
+Order order = Order.Create("ORD-2026-001", "CUST-1001");
+Console.WriteLine(order);
+
+order.AddLine("PROD-01", "Плед новорічний", 850m, 1);
+order.AddLine("PROD-02", "Подушка для сну", 1650m, 2);
+
+Console.WriteLine("\nПозиції у замовленні:");
+foreach (var line in order.Lines)
 {
-    Console.WriteLine($"Файл не знайдено: {Path.GetFullPath(path)}");
-    return;
+    Console.WriteLine($"  • {line}");
 }
 
-string extension = Path.GetExtension(path).ToLowerInvariant();
+order.Confirm();
+Console.WriteLine($"\nСтан після підтвердження: {order}\n");
 
-if (path.Contains("mixed", StringComparison.OrdinalIgnoreCase))
+
+Console.WriteLine("=== Сценарій 2: порушення інваріантів  ===");
+
+TryDo("Порожній ID замовлення", () => 
+    Order.Create("", "CUST-1001"));
+
+TryDo("Від'ємна ціна товару", () => 
 {
-    var mixedResult = MixedCsvImporter.Load(path);
+    var tempOrder = Order.Create("ORD-TEST", "CUST-1001");
+    tempOrder.AddLine("PROD-03", "Подушка", -1500m, 1);
+});
 
-    Console.WriteLine($"Завантажено товарів (P): {mixedResult.Products.Count}");
-    foreach (var p in mixedResult.Products)
+TryDo("Нульова кількість товару", () => 
+{
+    var tempOrder = Order.Create("ORD-TEST", "CUST-1001");
+    tempOrder.AddLine("PROD-03", "Дзеркало", 5000m, 0);
+});
+
+TryDo("Підтвердження порожнього замовлення", () => 
+{
+    var emptyOrder = Order.Create("ORD-EMPTY", "CUST-1001");
+    emptyOrder.Confirm();
+});
+
+TryDo("Додавання товару в підтверджене замовлення", () => 
+{
+    order.AddLine("PROD-04", "Ковдра велика", 749m, 1);
+});
+static void TryDo(string title, Action action)
+{
+    try
     {
-        Console.WriteLine($" [Товар]    {p.Id,-6} | {p.Name,-25} | {p.Price,8:C}");
+        action();
+        Console.WriteLine($" {title}: виняток НЕ спрацював!");
     }
-
-    Console.WriteLine("\nЗавантажено замовників (C): " + mixedResult.Customers.Count);
-    foreach (var c in mixedResult.Customers)
+    catch (Exception ex)
     {
-        Console.WriteLine($" [Замовник] {c.Id,-6} | {c.Name,-25} | {c.Phone}");
-    }
-
-    if (mixedResult.Errors.Count > 0)
-    {
-        Console.WriteLine($"Пропущено рядків: {mixedResult.Errors.Count}");
-        foreach (string e in mixedResult.Errors)
-        {
-            Console.WriteLine($" ! {e}");
-        }
-    }
-
-    int totalMixed = mixedResult.Products.Count + mixedResult.Customers.Count + mixedResult.Errors.Count;
-    int acceptedMixed = mixedResult.Products.Count + mixedResult.Customers.Count;
-    int skippedMixed = mixedResult.Errors.Count;
-    double errorRateMixed = totalMixed > 0 ? (double)skippedMixed / totalMixed * 100 : 0;
-
-    Console.WriteLine($"Статистика: Усього: {totalMixed} | Прийнято: {acceptedMixed} | Пропущено: {skippedMixed} | Помилок: {errorRateMixed:F1}%");
-
-    return;
-}
-
-ImportResult<ProductDto> result = extension switch
-{
-    ".csv" => ProductCsvImporter.Load(path),
-    ".json" => ProductJsonImporter.Load(path),
-    _ => new ImportResult<ProductDto>(new List<ProductDto>(), new[] { $"Непідтримуване розширення: {extension}" })
-};
-
-Console.WriteLine($"Завантажено записів: {result.Items.Count}");
-
-foreach (ProductDto p in result.Items.Take(5))
-{
-    Console.WriteLine($" {p.Id,-6} | {p.Name,-30} | {p.Price,10:C}");
-}
-
-if (result.Errors.Count > 0)
-{
-    Console.WriteLine($"Пропущено рядків: {result.Errors.Count}");
-    foreach (string e in result.Errors)
-    {
-        Console.WriteLine($" ! {e}");
+        Console.WriteLine($" {title}: {ex.GetType().Name} -> {ex.Message}");
     }
 }
-
-int accepted = result.Items.Count;
-int skipped = result.Errors.Count;
-int total = accepted + skipped;
-double errorRate = total > 0 ? (double)skipped / total * 100 : 0;
-
-Console.WriteLine($"Статистика: Усього: {total} | Прийнято: {accepted} | Пропущено: {skipped} | Помилок: {errorRate:F1}%");

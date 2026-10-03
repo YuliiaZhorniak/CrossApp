@@ -1,6 +1,6 @@
 namespace Core.Dto;
 
 public sealed record CustomerDto(
-    string Id,
+    string CustomerId,
     string Name,
     string Phone);

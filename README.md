@@ -38,3 +38,10 @@ CrossApp/
 ## Порівняння розмірів
 win-x64    - 76,66 MB
 linux-x64  - 78,79 MB
+
+## Інваріанти
+* `Order.Create`: Ідентифікатор замовлення та клієнта є обов'язковими (не порожні) -> `ArgumentException`.
+* `OrderLine`: Ціна товару не може бути від'ємною, а кількість має бути > 0 -> `ArgumentOutOfRangeException`.
+* `Order.AddLine`: Заборонено додавати товари до підтвердженого замовлення -> `InvalidOperationException`.
+* `Order.Confirm`: Заборонено підтверджувати порожнє замовлення (без товарів) -> `InvalidOperationException`.
+* `Order.Confirm`: Заборонено повторно підтверджувати вже підтверджене замовлення -> `InvalidOperationException`.
