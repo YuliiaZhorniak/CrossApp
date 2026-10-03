@@ -66,3 +66,70 @@ static void TryDo(string title, Action action)
         Console.WriteLine($" {title}: {ex.GetType().Name} -> {ex.Message}");
     }
 }
+
+
+Console.WriteLine("=== Д 3: Переходи статусів (switch expression) ===");
+var extraOrder = Order.Create("ORD-2026-88", "CUST-10");
+extraOrder.AddLine("PROD-01", "Ковдра", 1200m, 1);
+
+Console.WriteLine($"Початковий статус: {order.Status}");
+extraOrder.Confirm();
+Console.WriteLine($"Після Confirm(): {order.Status}");
+
+extraOrder.Cancel();
+Console.WriteLine($"Після Cancel(): {order.Status}");
+
+try
+{
+    extraOrder.Confirm();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($" {ex.GetType().Name}: {ex.Message}\n");
+}
+
+
+Console.WriteLine("=== Д1: Обробка ImportResult -> Domain ===");
+var rawImport = new ImportResult<OrderDto>(
+    Items: new List<OrderDto>
+    {
+        new("ORD-101", "CUST-01", DateTime.UtcNow, false, new List<OrderLineDto> { new("P1", "Товар 1", 100m, 2) }),
+       
+        new("ORD-102", "CUST-02", DateTime.UtcNow, false, new List<OrderLineDto> { new("P2", "Зламаний товар", -50m, 1) })
+    },
+    Errors: new List<string> { "[CSV-ERR] Помилка формату рядка 5 у файлі CSV" }
+);
+
+var domainResult = OrderDomainImporter.ProcessImport(rawImport);
+
+Console.WriteLine($"Прийнято доменних замовлень: {domainResult.Items.Count}");
+foreach (var validOrder in domainResult.Items)
+{
+    Console.WriteLine($"  • {validOrder}");
+}
+
+Console.WriteLine($"Загальний перелік помилок (імпорт + домен): {domainResult.ValidationErrors.Count}");
+foreach (var err in domainResult.ValidationErrors)
+{
+    Console.WriteLine($"  ! {err}");
+}
+Console.WriteLine();
+
+
+Console.WriteLine("=== Д 2: Інваріант для двох сутностей ===");
+var existingOrders = new List<Order>
+{
+    Order.Create("ORD-1", "CUST-99"),
+    Order.Create("ORD-2", "CUST-99"),
+    Order.Create("ORD-3", "CUST-99")
+};
+
+try
+{
+    Console.WriteLine("Перевірка створення 4-го замовлення для клієнта CUST-99...");
+    CustomerOrderPolicy.ValidateCanCreateOrder("CUST-99", existingOrders);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($" {ex.GetType().Name}: {ex.Message}");
+}

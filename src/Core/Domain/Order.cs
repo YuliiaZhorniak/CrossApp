@@ -1,4 +1,5 @@
 using Core.Dto;
+
 namespace Core.Domain;
 
 public sealed class Order
@@ -8,18 +9,19 @@ public sealed class Order
     public string Id { get; }
     public string CustomerId { get; }
     public DateTime CreatedAt { get; }
-    public bool IsConfirmed { get; private set; } 
+    
+    public OrderStatus Status { get; private set; }
+    public bool IsConfirmed => Status == OrderStatus.Confirmed;
 
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
-
     public decimal Total => _lines.Sum(line => line.LineTotal);
 
-    private Order(string id, string customerId, DateTime createdAt, bool isConfirmed)
+    private Order(string id, string customerId, DateTime createdAt, OrderStatus status)
     {
         Id = id;
         CustomerId = customerId;
         CreatedAt = createdAt;
-        IsConfirmed = isConfirmed;
+        Status = status;
     }
 
     public static Order Create(string id, string customerId)
@@ -34,29 +36,36 @@ public sealed class Order
             id.Trim().ToUpperInvariant(),
             customerId.Trim(),
             DateTime.UtcNow,
-            isConfirmed: false
+            OrderStatus.Draft
         );
     }
 
     public void AddLine(string productId, string productName, decimal unitPrice, int quantity)
     {
-        if (IsConfirmed)
-            throw new InvalidOperationException($"Замовлення [{Id}] вже підтверджене, додавати нові рядки заборонено.");
+        if (Status != OrderStatus.Draft)
+            throw new InvalidOperationException($"Замовлення [{Id}] перебуває у статусі {Status}. Додавання нових позицій дозволено тільки для чернеток.");
 
         var line = new OrderLine(productId, productName, unitPrice, quantity);
         _lines.Add(line);
     }
 
-    public void Confirm()
+    public void ChangeStatus(OrderStatus newStatus)
     {
-        if (IsConfirmed)
-            throw new InvalidOperationException($"Замовлення [{Id}] вже підтверджене.");
+        Status = (Status, newStatus) switch
+        {
+            (OrderStatus.Draft, OrderStatus.Confirmed) when _lines.Count == 0 =>
+                throw new InvalidOperationException($"Неможливо підтвердити замовлення [{Id}]: воно не містить жодного товару."),
 
-        if (_lines.Count == 0)
-            throw new InvalidOperationException($"Неможливо підтвердити замовлення [{Id}]: воно не містить жодного товару.");
+            (OrderStatus.Draft, OrderStatus.Confirmed) => OrderStatus.Confirmed,
+            (OrderStatus.Draft, OrderStatus.Cancelled) => OrderStatus.Cancelled,
+            (OrderStatus.Confirmed, OrderStatus.Cancelled) => OrderStatus.Cancelled,
 
-        IsConfirmed = true;
+            _ => throw new InvalidOperationException($"Недопустимий перехід статусу замовлення [{Id}] з {Status} у {newStatus}.")
+        };
     }
+
+    public void Confirm() => ChangeStatus(OrderStatus.Confirmed);
+    public void Cancel() => ChangeStatus(OrderStatus.Cancelled);
 
     public OrderDto ToDto() => new(
         Id,
@@ -87,5 +96,5 @@ public sealed class Order
     }
 
     public override string ToString() =>
-        $"Замовлення [{Id}] | Клієнт: {CustomerId} | Статус: {(IsConfirmed ? "Підтверджене" : "Чернетка")} | Загальна сума: {Total:C} | Рядків: {_lines.Count}";
+        $"Замовлення [{Id}] | Клієнт: {CustomerId} | Статус: {Status} | Загальна сума: {Total:C} | Рядків: {_lines.Count}";
 }
