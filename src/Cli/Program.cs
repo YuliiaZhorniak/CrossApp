@@ -5,131 +5,50 @@ using System.Text;
 using Core.Dto;
 using Core.Import;
 using Core.Domain;
+using Core;
+using Core.Abstractions;
+using Core.Storage;
+using Core.Services;
 
 Console.OutputEncoding = Encoding.UTF8;
+bool useFile = args.Contains("--file");
+string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
 
+IOrderStore store = useFile
+    ? new FileOrderStore(dataPath)
+    : new InMemoryOrderStore(SampleData.Orders());
 
-Console.WriteLine("=== Сценарій 1: успіх ===");
+var service = new OrderService(store);
 
-Order order = Order.Create("ORD-2026-001", "CUST-1001");
-Console.WriteLine(order);
+Console.WriteLine($"Сховище: {store.GetType().Name}");
 
-order.AddLine("PROD-01", "Плед новорічний", 850m, 1);
-order.AddLine("PROD-02", "Подушка для сну", 1650m, 2);
+// Успішний сценарій демонстрації
+ Console.WriteLine("\n=== УСПІХ =");
+    var newOrder = service.CreateNewOrder("CUST-500");
+    service.AddLineToOrder(newOrder.Id, "PROD-10", "Подушка для сну", 1650m, 1);
+    service.ConfirmOrder(newOrder.Id);
 
-Console.WriteLine("\nПозиції у замовленні:");
-foreach (var line in order.Lines)
-{
-    Console.WriteLine($"  • {line}");
-}
+    Console.WriteLine($"Створено та підтверджено замовлення: {newOrder.Id}");
 
-order.Confirm();
-Console.WriteLine($"\nСтан після підтвердження: {order}\n");
-
-
-Console.WriteLine("=== Сценарій 2: порушення інваріантів  ===");
-
-TryDo("Порожній ID замовлення", () => 
-    Order.Create("", "CUST-1001"));
-
-TryDo("Від'ємна ціна товару", () => 
-{
-    var tempOrder = Order.Create("ORD-TEST", "CUST-1001");
-    tempOrder.AddLine("PROD-03", "Подушка", -1500m, 1);
-});
-
-TryDo("Нульова кількість товару", () => 
-{
-    var tempOrder = Order.Create("ORD-TEST", "CUST-1001");
-    tempOrder.AddLine("PROD-03", "Дзеркало", 5000m, 0);
-});
-
-TryDo("Підтвердження порожнього замовлення", () => 
-{
-    var emptyOrder = Order.Create("ORD-EMPTY", "CUST-1001");
-    emptyOrder.Confirm();
-});
-
-TryDo("Додавання товару в підтверджене замовлення", () => 
-{
-    order.AddLine("PROD-04", "Ковдра велика", 749m, 1);
-});
-static void TryDo(string title, Action action)
-{
-    try
+    Console.WriteLine("\nАктуальний список усіх замовлень у сховищі:");
+    foreach (var order in service.All())
     {
-        action();
-        Console.WriteLine($" {title}: виняток НЕ спрацював!");
+        Console.WriteLine($"  • {order}");
+        foreach (var line in order.Lines)
+        {
+            Console.WriteLine( $"      - {line.ProductName} | {line.Quantity} шт. x {line.UnitPrice} ₴ = {line.LineTotal} ₴");
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($" {title}: {ex.GetType().Name} -> {ex.Message}");
-    }
-}
 
 
-Console.WriteLine("=== Д 3: Переходи статусів (switch expression) ===");
-var extraOrder = Order.Create("ORD-2026-88", "CUST-10");
-extraOrder.AddLine("PROD-01", "Ковдра", 1200m, 1);
-
-Console.WriteLine($"Початковий статус: {order.Status}");
-extraOrder.Confirm();
-Console.WriteLine($"Після Confirm(): {order.Status}");
-
-extraOrder.Cancel();
-Console.WriteLine($"Після Cancel(): {order.Status}");
-
+// Крок 6: Сценарій відмови (викликати метод з неіснуючим ID)[cite: 10, 14]
+Console.WriteLine("\n=== СЦЕНАРІЙ ВІДМОВИ ===");
 try
 {
-    extraOrder.Confirm();
+    Console.WriteLine("Спроба підтвердити замовлення з неіснуючим ID ('ORD-NONEXISTENT')...");
+    service.ConfirmOrder("ORD-NONEXISTENT");
 }
 catch (Exception ex)
 {
-    Console.WriteLine($" {ex.GetType().Name}: {ex.Message}\n");
-}
-
-
-Console.WriteLine("=== Д1: Обробка ImportResult -> Domain ===");
-var rawImport = new ImportResult<OrderDto>(
-    Items: new List<OrderDto>
-    {
-        new("ORD-101", "CUST-01", DateTime.UtcNow, false, new List<OrderLineDto> { new("P1", "Товар 1", 100m, 2) }),
-       
-        new("ORD-102", "CUST-02", DateTime.UtcNow, false, new List<OrderLineDto> { new("P2", "Зламаний товар", -50m, 1) })
-    },
-    Errors: new List<string> { "[CSV-ERR] Помилка формату рядка 5 у файлі CSV" }
-);
-
-var domainResult = OrderDomainImporter.ProcessImport(rawImport);
-
-Console.WriteLine($"Прийнято доменних замовлень: {domainResult.Items.Count}");
-foreach (var validOrder in domainResult.Items)
-{
-    Console.WriteLine($"  • {validOrder}");
-}
-
-Console.WriteLine($"Загальний перелік помилок (імпорт + домен): {domainResult.ValidationErrors.Count}");
-foreach (var err in domainResult.ValidationErrors)
-{
-    Console.WriteLine($"  ! {err}");
-}
-Console.WriteLine();
-
-
-Console.WriteLine("=== Д 2: Інваріант для двох сутностей ===");
-var existingOrders = new List<Order>
-{
-    Order.Create("ORD-1", "CUST-99"),
-    Order.Create("ORD-2", "CUST-99"),
-    Order.Create("ORD-3", "CUST-99")
-};
-
-try
-{
-    Console.WriteLine("Перевірка створення 4-го замовлення для клієнта CUST-99...");
-    CustomerOrderPolicy.ValidateCanCreateOrder("CUST-99", existingOrders);
-}
-catch (Exception ex)
-{
-    Console.WriteLine($" {ex.GetType().Name}: {ex.Message}");
+    Console.WriteLine($"[ПЕРЕХОПЛЕНО ВИНЯТОК] {ex.GetType().Name} -> {ex.Message}[cite: 10, 14]");
 }

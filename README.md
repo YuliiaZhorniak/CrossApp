@@ -45,3 +45,11 @@ linux-x64  - 78,79 MB
 * `Order.AddLine`: Заборонено додавати товари до підтвердженого замовлення -> `InvalidOperationException`.
 * `Order.Confirm`: Заборонено підтверджувати порожнє замовлення (без товарів) -> `InvalidOperationException`.
 * `Order.Confirm`: Заборонено повторно підтверджувати вже підтверджене замовлення -> `InvalidOperationException`.
+
+## Лабораторна робота 5
+- **Інтерфейс сховища:** `IOrderStore`
+- **Реалізації сховища:** 
+  - `InMemoryOrderStore` 
+  - `FileOrderStore`
+- **Сервіс:** `OrderService` 
+- **Composition Root / Ручний DI:** `Program.cs`
