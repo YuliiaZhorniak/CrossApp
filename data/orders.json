@@ -1,0 +1,16 @@
+[
+  {
+    "Id": "ORD-02E3C6D9",
+    "CustomerId": "CUST-500",
+    "CreatedAt": "2026-10-12T17:12:13.3602484Z",
+    "IsConfirmed": true,
+    "Lines": [
+      {
+        "ProductId": "PROD-10",
+        "ProductName": "\u041F\u043E\u0434\u0443\u0448\u043A\u0430 \u0434\u043B\u044F \u0441\u043D\u0443",
+        "UnitPrice": 1650,
+        "Quantity": 1
+      }
+    ]
+  }
+]

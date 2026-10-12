@@ -12,9 +12,7 @@ using Core.Services;
 
 Console.OutputEncoding = Encoding.UTF8;
 bool useFile = args.Contains("--file");
-string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
-
-IOrderStore store = useFile
+string dataPath = Path.Combine("data", "orders.json");IOrderStore store = useFile
     ? new FileOrderStore(dataPath)
     : new InMemoryOrderStore(SampleData.Orders());
 
@@ -22,7 +20,6 @@ var service = new OrderService(store);
 
 Console.WriteLine($"Сховище: {store.GetType().Name}");
 
-// Успішний сценарій демонстрації
  Console.WriteLine("\n=== УСПІХ =");
     var newOrder = service.CreateNewOrder("CUST-500");
     service.AddLineToOrder(newOrder.Id, "PROD-10", "Подушка для сну", 1650m, 1);
@@ -40,8 +37,6 @@ Console.WriteLine($"Сховище: {store.GetType().Name}");
         }
     }
 
-
-// Крок 6: Сценарій відмови (викликати метод з неіснуючим ID)[cite: 10, 14]
 Console.WriteLine("\n=== СЦЕНАРІЙ ВІДМОВИ ===");
 try
 {
