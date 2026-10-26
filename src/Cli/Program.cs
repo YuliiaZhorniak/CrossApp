@@ -10,6 +10,7 @@ using Core.Abstractions;
 using Core.Storage;
 using Core.Services;
 using Core.Events;
+using Core.Reports;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -37,44 +38,53 @@ service.Changed += (_, _) => changes++;
 
 Console.WriteLine($"Сховище: {store.GetType().Name}");
 
- Console.WriteLine("\n=== УСПІХ ===");
-    var newOrder = service.CreateNewOrder("CUST-500");
-    service.AddLineToOrder(newOrder.Id, "PROD-10", "Подушка для сну", 1650m, 1);
-    service.ConfirmOrder(newOrder.Id);
 
-    Console.WriteLine($"Створено та підтверджено замовлення: {newOrder.Id}");
+var sourceOrders = service.List().ToList();
+var query = sourceOrders.Where(o => o.Total < 500m); 
 
-    
-Console.WriteLine("\n===  ПОДІЇ  ===");
+Console.WriteLine($"Дефіцитних до змін: {query.Count()}");
 
-var demoOrder = service.CreateNewOrder("CUST-777");
+var cheapOrder = service.CreateNewOrder("CUST-999");
+sourceOrders.Add(cheapOrder);
 
-service.AddLineToOrder(demoOrder.Id, "PROD-99", "Дзеркало", 11500m, 1);
+Console.WriteLine($"Дефіцитних після змін: {query.Count()}"); 
 
-Console.WriteLine($"Подій отримано (до відписки): {changes}"); 
+var snapshot = query.ToList(); 
 
-service.Changed -= OnOrderChanged;
+sourceOrders.Clear();
+Console.WriteLine($"У знімку лишилось: {snapshot.Count}"); 
 
-service.AddLineToOrder(demoOrder.Id, "PROD-88", "Ковдра велика", 749m, 1);
 
-Console.WriteLine($"Подій отримано (після відписки): {changes}"); 
+var items = service.List();
+var command = args.FirstOrDefault(a => !a.StartsWith("--")) ?? "report-top";
 
-Console.WriteLine("\n===  ВІДМОВА ===");
-try
+switch (command)
 {
-    service.AddLineToOrder("ORD-NONEXISTENT", "PROD-00", "Тест", 100m, 1);
+    case "report-top":
+        Print(ReportService.TopByAmount(items, 5));
+        break;
+    case "report-expensive":
+        Print(ReportService.ExpensiveOrders(items, 500m));
+        break;
+    case "report-groups":
+        foreach (var g in ReportService.ByStatus(items))
+        {
+            Console.WriteLine($"Статус: {g.Key,-12} | Позицій: {g.Count,3} | Сумарно: {g.TotalAmount,10:C}");
+        }
+        break;
+    case "report-sum":
+        var t = ReportService.Totals(items);
+        Console.WriteLine($"Всього замовлень: {t.Count}, Сумарно: {t.Total:C}, Середній чек: {t.Average:F2}, Максимальне: {t.Max:C}");
+        break;
+    default:
+        Console.WriteLine("Доступні команди: report-top | report-expensive | report-groups | report-sum");
+        break;
 }
-catch (Exception ex)
+
+static void Print(IReadOnlyList<OrderReportLine> lines)
 {
-    Console.WriteLine($"[ПЕРЕХОПЛЕНО ВИНЯТОК] {ex.GetType().Name} -> {ex.Message}");
-}
-
-Console.WriteLine("\n=== ФІЛЬТРАЦІЯ ===");
-
-var expensiveOrders = service.FindAll(o => o.Total > 500m);
-
-Console.WriteLine($"Знайдено замовлень з сумою > 500 грн: {expensiveOrders.Count}");
-foreach (var ord in expensiveOrders)
-{
-    Console.WriteLine($" • {ord}");
+    foreach (var l in lines)
+    {
+        Console.WriteLine($" ID: {l.Id,-12} | Клієнт: {l.CustomerId,-12} | Сума: {l.Total,8:C} | Статус: {l.Status}");
+    }
 }
