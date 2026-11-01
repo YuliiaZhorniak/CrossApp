@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Domain;
 using Core.Events;
 
 namespace Core.Services;
+
 public sealed class OrderService(IOrderStore store)
 {
     private readonly IOrderStore _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -21,7 +24,7 @@ public sealed class OrderService(IOrderStore store)
         var order = Order.Create(id, customerId);
         
         _store.Add(order);
-                OnChanged(order, OrderChangeKind.Created, 0);
+        OnChanged(order, OrderChangeKind.Created, 0);
         
         return order;
     }
@@ -49,6 +52,55 @@ public sealed class OrderService(IOrderStore store)
     }
 
     public IReadOnlyList<Order> List() => _store.List();
+    
     public IReadOnlyList<Order> FindAll(Func<Order, bool> predicate) =>
         _store.List().Where(predicate).ToList();
+
+    public async Task<int> ImportAsync(ICatalogImporter importer, string path, CancellationToken ct = default, IProgress<int>? progress = null)
+    {
+        var orders = (await importer.LoadAsync(path, ct)).ToList();
+        var total = orders.Count;
+        var added = 0;
+        
+        for (int i = 0; i < total; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var order = orders[i];
+            
+            if (_store.GetById(order.Id) is not null) continue;
+            
+            _store.Add(order);
+            OnChanged(order, OrderChangeKind.Created, order.Total);
+            added++;
+
+            if (total > 0)
+            {
+                int percent = (i + 1) * 100 / total;
+                progress?.Report(percent);
+            }
+        }
+        
+        return added;
+    }
+
+    public async Task<int> ImportStreamAsync(ICatalogImporter importer, string path, CancellationToken ct = default)
+    {
+        var added = 0;
+        
+        await foreach (var order in importer.LoadStreamAsync(path, ct))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (_store.GetById(order.Id) is not null)
+            {
+                continue;
+            }
+
+            _store.Add(order);
+            OnChanged(order, OrderChangeKind.Created, order.Total);
+            added++;
+        }
+
+        return added;
+    }
 }

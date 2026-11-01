@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Serialization;
 using Core.Dto;
 
 namespace Core.Domain;
@@ -16,10 +20,17 @@ public sealed class Order
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(line => line.LineTotal);
 
+[JsonConstructor]
     private Order(string id, string customerId, DateTime createdAt, OrderStatus status)
     {
-        Id = id;
-        CustomerId = customerId;
+        if (string.IsNullOrWhiteSpace(id))
+            throw new DomainException("Ідентифікатор замовлення не може бути порожнім.");
+
+        if (string.IsNullOrWhiteSpace(customerId))
+            throw new DomainException("Ідентифікатор клієнта не може бути порожнім.");
+
+        Id = id.Trim().ToUpperInvariant();
+        CustomerId = customerId.Trim();
         CreatedAt = createdAt;
         Status = status;
     }
