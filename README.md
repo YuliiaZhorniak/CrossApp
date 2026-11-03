@@ -104,8 +104,7 @@ linux-x64  - 78,79 MB
 # Запуск проєкту
 dotnet run --project src/Cli
 
-### Bash:
-```powershell
+Для Bash
 # Зміна активного профілю
 export CROSSAPP_ENVIRONMENT="Production"
 
