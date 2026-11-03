@@ -103,3 +103,20 @@ linux-x64  - 78,79 MB
 
 # Запуск проєкту
 dotnet run --project src/Cli
+
+### Bash:
+```powershell
+# Зміна активного профілю
+export CROSSAPP_ENVIRONMENT="Production"
+
+# Перевизначення вкладеного ключа через подвійне підкреслення
+export CROSSAPP_Storage__DataPath="/tmp/custom_data"
+
+# Перевизначення через окрему спеціальну змінну
+export CROSSAPP_DATA_PATH="/tmp/custom_data"
+
+# Перевизначення секрету через середовище
+export CROSSAPP_Integration__ApiKey="env-secret-key"
+
+# Запуск проєкту
+dotnet run --project src/Cli
