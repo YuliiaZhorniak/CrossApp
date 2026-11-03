@@ -11,62 +11,34 @@ using Core.Events;
 using Core.Reports;
 using Core.Services;
 using Core.Storage;
+using System.Reflection;
+using Core.Configuration;
+using Microsoft.Extensions.Configuration;
 
-Console.OutputEncoding = Encoding.UTF8;
+var envName = Environment.GetEnvironmentVariable("CROSSAPP_ENVIRONMENT") ?? "Development";
 
-var dataPath = "data/orders.json";
-if (args.Length > 0)
+var config = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{envName}.json", optional: true)
+    .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true)
+    .AddEnvironmentVariables(prefix: "CROSSAPP_")
+    .AddCommandLine(args)
+    .Build();
+
+// Біндінг у міцно типізований клас AppOptions
+var options = config.Get<AppOptions>() ?? new AppOptions();
+
+// Окрема перевірка простішої змінної середовища CROSSAPP_DATA_PATH
+var legacy = Environment.GetEnvironmentVariable("CROSSAPP_DATA_PATH");
+var storage = new AppOptions.StorageOptions
 {
-    var fileArgIndex = Array.IndexOf(args, "--file");
-    if (fileArgIndex >= 0 && args.Length > fileArgIndex + 1)
-    {
-        dataPath = args[fileArgIndex + 1];
-    }
-    else if (!args[0].StartsWith("-"))
-    {
-        dataPath = args[0];
-    }
-}
-
-var store = new InMemoryOrderStore();
-var service = new OrderService(store);
-
-using var userCts = new CancellationTokenSource();
-using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(userCts.Token, timeoutCts.Token);
-
-Console.CancelKeyPress += (_, e) => 
-{ 
-    e.Cancel = true; 
-    userCts.Cancel(); 
+    DataPath = string.IsNullOrWhiteSpace(legacy) ? options.Storage.DataPath : legacy,
+    FileName = options.Storage.FileName
 };
 
-var progress = new Progress<int>(percent =>
-{
-    Console.Write($"\rПрогрес імпорту: {percent}%   ");
-});
+var apiKey = config["Integration:ApiKey"];
 
-try
-{
-    var added = await service.ImportAsync(new JsonCatalogImporter(), dataPath, linkedCts.Token, progress);
-    
-    await Task.Delay(50);
-
-    Console.WriteLine($"\nІмпортовано записів: {added}");
-}
-catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
-{
-    Console.WriteLine("\nОперацію перервано: перевищено час очікування (таймаут).");
-}
-catch (OperationCanceledException)
-{
-    Console.WriteLine("\nІмпорт скасовано.");
-}
-catch (DomainException ex)
-{
-    Console.WriteLine($"\nДані відхилено: {ex.Message}");
-}
-catch (FileNotFoundException)
-{
-    Console.WriteLine($"\nФайл не знайдено: {dataPath}");
-}
+Console.WriteLine($"Файл даних: {storage.ResolveFullPath(AppContext.BaseDirectory)}");
+Console.WriteLine(apiKey is null ? "ApiKey: не заданий" : $"ApiKey: присутній, довжина {apiKey.Length}");
+Console.WriteLine($"Валюта замовлень: {options.Orders.Currency}");

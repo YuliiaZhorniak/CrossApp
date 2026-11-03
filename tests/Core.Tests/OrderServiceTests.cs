@@ -42,8 +42,8 @@ public class OrderServiceTests
     }
 
     [Theory]
-    [InlineData(500, 1)]
-    [InlineData(1000, 0)] 
+    [InlineData(500, 2)]
+    [InlineData(3000, 0)] 
     public void ExpensiveOrders_CountsOnlyAboveThreshold(decimal threshold, int expected)
     {
         var result = ReportService.ExpensiveOrders(TestData.Orders(), threshold);

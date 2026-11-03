@@ -61,3 +61,45 @@ linux-x64  - 78,79 MB
 ## Лабораторна робота 8
 - **dotnet test** - запустити тести
 - **Ctrl + C** - при запуску імпорту натиснути цю комбінацію
+
+## Лабораторна робота 9
+## Профілі застосунку
+Застосунок підтримує два основних середовища виконання:
+1. **Development (Розробка):**
+   - Використовує файл конфігурації `appsettings.Development.json`.
+   - Встановлює детальніший рівень логування (`Debug`).
+   - Застосовує локальні `user-secrets` для зберігання конфіденційних ключів.
+2. **Production (Продакшен):**
+   - Використовує базовий файл `appsettings.json`.
+   - Рівень логування за замовчуванням: `Information`.
+   - Конфіденційні дані передаються виключно через змінні середовища.
+
+   ## Таблиця ключів конфігурації
+
+| Шлях ключа у JSON | Тип | За замовчуванням | Опис |
+| :--- | :--- | :--- | :--- |
+| `EnvironmentName` | `string` | `Development` | Активне середовище застосунку |
+| `Logging:MinimumLevel` | `string` | `Information` | Мінімальний рівень логування |
+| `Storage:DataPath` | `string` | `data` | Відносний або абсолютний шлях до каталогу даних |
+| `Storage:FileName` | `string` | `items.json` | Назва файлу сховища даних |
+| `Orders:Currency` | `string` | `UAH` | Валюта замовлень для доменної моделі |
+| `Integration:ApiKey` | `string` | *зберігається у secrets* | Секрет інтеграції (читається з `user-secrets` або ENV) |
+
+
+## Приклади змінних
+### PowerShell (Windows):
+```powershell
+# Зміна активного профілю
+\$env:CROSSAPP_ENVIRONMENT = "Production"
+
+# Перевизначення вкладеного ключа через загальний механізм (подвійне підкреслення)
+\$env:CROSSAPP_Storage__DataPath = "C:\temp\custom_data"
+
+# Перевизначення через окрему спеціальну змінну
+\$env:CROSSAPP_DATA_PATH = "C:\temp\custom_data"
+
+# Перевизначення секрету через середовище
+\$env:CROSSAPP_Integration__ApiKey = "env-secret-key"
+
+# Запуск проєкту
+dotnet run --project src/Cli
